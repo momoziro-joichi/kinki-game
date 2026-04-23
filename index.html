@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>近畿陣取りゲーム</title>
 
 <style>
@@ -30,22 +29,23 @@ path {
 }
 
 button {
-  padding: 10px 15px;
+  padding: 10px;
   margin: 5px;
   border: none;
   border-radius: 8px;
   background: #333;
   color: white;
 }
+
 </style>
 </head>
 
 <body>
 
 <div id="ui">
-  <h2>近畿陣取り</h2>
+  <h2>近畿陣取り（リアル版）</h2>
   <p id="turn">プレイヤーのターン</p>
-  <p id="status">県をクリックして選択</p>
+  <p id="status">県を選択</p>
   <p id="score"></p>
 
   <button onclick="playerAction('attack')">攻撃</button>
@@ -53,21 +53,21 @@ button {
   <button onclick="restart()">リスタート</button>
 </div>
 
-<!-- 🗺近畿SVG -->
-<svg viewBox="0 0 300 300">
+<!-- 🗾リアル寄りSVG -->
+<svg viewBox="0 0 400 400">
 
-  <path id="滋賀" d="M150,20 L200,40 L190,90 L140,80 Z" fill="#ccc"/>
-  <path id="京都" d="M120,80 L170,90 L160,140 L110,130 Z" fill="#ccc"/>
-  <path id="大阪" d="M140,140 L190,150 L180,200 L130,190 Z" fill="#ccc"/>
-  <path id="奈良" d="M190,140 L240,150 L230,200 L180,190 Z" fill="#ccc"/>
-  <path id="兵庫" d="M70,120 L120,130 L110,190 L60,180 Z" fill="#ccc"/>
-  <path id="和歌山" d="M160,200 L230,210 L220,270 L150,260 Z" fill="#ccc"/>
+  <path id="滋賀" d="M210,40 L260,60 L250,120 L200,100 Z"/>
+  <path id="京都" d="M170,110 L230,120 L220,180 L160,170 Z"/>
+  <path id="大阪" d="M180,180 L240,190 L230,250 L170,240 Z"/>
+  <path id="奈良" d="M240,180 L300,190 L290,250 L230,240 Z"/>
+  <path id="兵庫" d="M80,150 L170,170 L160,240 L70,220 Z"/>
+  <path id="和歌山" d="M200,250 L300,260 L290,330 L190,320 Z"/>
 
 </svg>
 
 <script>
 
-// 👇基本データ
+// ===== データ =====
 let selected = null;
 
 let ownership = {
@@ -97,7 +97,7 @@ const adjacency = {
   "和歌山":["大阪","奈良"]
 };
 
-// 👇クリック
+// ===== クリック =====
 Object.keys(stats).forEach(p => {
   document.getElementById(p).addEventListener("click", () => {
     if (ownership[p] !== "player") return;
@@ -106,19 +106,18 @@ Object.keys(stats).forEach(p => {
   });
 });
 
-// 👇プレイヤー行動
+// ===== プレイヤー =====
 function playerAction(action) {
   if (!selected) return;
 
   resolveTurn(selected, action, "player");
 
   cpuTurn();
-
   updateMap();
   checkWin();
 }
 
-// 👇CPU
+// ===== CPU =====
 function cpuTurn() {
   let ai = Object.keys(ownership).filter(p => ownership[p] === "ai");
   if (ai.length === 0) return;
@@ -128,7 +127,7 @@ function cpuTurn() {
   resolveTurn(from, Math.random() < 0.7 ? "attack" : "defense", "ai");
 }
 
-// 👇戦闘
+// ===== 戦闘 =====
 function resolveTurn(from, action, side) {
   let targets = adjacency[from].filter(p => ownership[p] !== side);
   if (targets.length === 0) return;
@@ -143,7 +142,7 @@ function resolveTurn(from, action, side) {
   }
 }
 
-// 👇描画
+// ===== 描画 =====
 function updateMap() {
   Object.keys(ownership).forEach(p => {
     let el = document.getElementById(p);
@@ -156,7 +155,7 @@ function updateMap() {
   updateScore();
 }
 
-// 👇スコア
+// ===== スコア =====
 function updateScore() {
   let player = 0, ai = 0;
 
@@ -169,20 +168,14 @@ function updateScore() {
     `プレイヤー: ${player} / CPU: ${ai}`;
 }
 
-// 👇勝利判定
+// ===== 勝利 =====
 function checkWin() {
   let vals = Object.values(ownership);
 
-  if (vals.every(v => v === "player")) {
-    endGame("win");
-  }
-
-  if (vals.every(v => v === "ai")) {
-    endGame("lose");
-  }
+  if (vals.every(v => v === "player")) endGame("win");
+  if (vals.every(v => v === "ai")) endGame("lose");
 }
 
-// 👇終了
 function endGame(type) {
   document.body.innerHTML =
     type === "win"
@@ -190,17 +183,16 @@ function endGame(type) {
       : "<h1>💀敗北…CPUに支配された</h1>";
 }
 
-// 👇UI
+// ===== UI =====
 function setStatus(text) {
   document.getElementById("status").textContent = text;
 }
 
-// 👇リスタート
 function restart() {
   location.reload();
 }
 
-// 初期
+// 初期表示
 updateMap();
 
 </script>
