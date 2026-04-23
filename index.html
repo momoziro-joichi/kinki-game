@@ -3,197 +3,181 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>近畿陣取りゲーム</title>
+
+<title>近畿陣取り（GeoJSON完全版）</title>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
 
 <style>
 body {
-  margin: 0;
-  font-family: sans-serif;
-  background: #111;
-  color: white;
-  text-align: center;
-}
-
-#ui {
-  padding: 10px;
+  margin:0;
+  background:#111;
+  color:white;
+  text-align:center;
+  font-family:sans-serif;
 }
 
 svg {
-  width: 95vw;
-  max-width: 400px;
+  width:95vw;
+  max-width:400px;
 }
 
 path {
-  cursor: pointer;
-  transition: 0.2s;
+  stroke:#000;
+  cursor:pointer;
+  transition:0.2s;
 }
 
 button {
-  padding: 10px;
-  margin: 5px;
-  border: none;
-  border-radius: 8px;
-  background: #333;
-  color: white;
+  padding:10px;
+  margin:5px;
+  border:none;
+  background:#333;
+  color:white;
 }
-
 </style>
 </head>
 
 <body>
 
-<div id="ui">
-  <h2>近畿陣取り（リアル版）</h2>
-  <p id="turn">プレイヤーのターン</p>
-  <p id="status">県を選択</p>
-  <p id="score"></p>
+<h2>近畿陣取り（リアル地図）</h2>
+<p id="status">県をクリック</p>
+<p id="score"></p>
 
-  <button onclick="playerAction('attack')">攻撃</button>
-  <button onclick="playerAction('defense')">守備</button>
-  <button onclick="restart()">リスタート</button>
-</div>
+<button onclick="playerAction()">攻撃</button>
 
-<!-- 🗾リアル寄りSVG -->
-<svg viewBox="0 0 400 400">
-
-  <path id="滋賀" d="M210,40 L260,60 L250,120 L200,100 Z"/>
-  <path id="京都" d="M170,110 L230,120 L220,180 L160,170 Z"/>
-  <path id="大阪" d="M180,180 L240,190 L230,250 L170,240 Z"/>
-  <path id="奈良" d="M240,180 L300,190 L290,250 L230,240 Z"/>
-  <path id="兵庫" d="M80,150 L170,170 L160,240 L70,220 Z"/>
-  <path id="和歌山" d="M200,250 L300,260 L290,330 L190,320 Z"/>
-
-</svg>
+<svg id="map"></svg>
 
 <script>
 
-// ===== データ =====
+// ===== 状態 =====
 let selected = null;
 
 let ownership = {
-  "京都": "player",
-  "大阪": "ai",
-  "奈良": "ai",
-  "兵庫": "ai",
-  "滋賀": null,
-  "和歌山": null
+  "京都府":"player",
+  "大阪府":"ai",
+  "奈良県":"ai",
+  "兵庫県":"ai",
+  "滋賀県":null,
+  "和歌山県":null
 };
 
 let stats = {
-  "滋賀": {atk:2, def:3},
-  "京都": {atk:2, def:4},
-  "大阪": {atk:5, def:2},
-  "奈良": {atk:2, def:4},
-  "兵庫": {atk:3, def:3},
-  "和歌山": {atk:1, def:3}
+  "滋賀県":{atk:2,def:3},
+  "京都府":{atk:2,def:4},
+  "大阪府":{atk:5,def:2},
+  "奈良県":{atk:2,def:4},
+  "兵庫県":{atk:3,def:3},
+  "和歌山県":{atk:1,def:3}
 };
 
 const adjacency = {
-  "滋賀":["京都"],
-  "京都":["滋賀","大阪","兵庫"],
-  "大阪":["京都","奈良","和歌山","兵庫"],
-  "奈良":["大阪","和歌山"],
-  "兵庫":["京都","大阪"],
-  "和歌山":["大阪","奈良"]
+  "滋賀県":["京都府"],
+  "京都府":["滋賀県","大阪府","兵庫県"],
+  "大阪府":["京都府","奈良県","和歌山県","兵庫県"],
+  "奈良県":["大阪府","和歌山県"],
+  "兵庫県":["京都府","大阪府"],
+  "和歌山県":["大阪府","奈良県"]
 };
 
-// ===== クリック =====
-Object.keys(stats).forEach(p => {
-  document.getElementById(p).addEventListener("click", () => {
-    if (ownership[p] !== "player") return;
-    selected = p;
-    setStatus(p + "を選択");
-  });
+// ===== D3 =====
+const svg = d3.select("#map");
+
+const projection = d3.geoMercator()
+  .center([135.5,34.8])
+  .scale(2000)
+  .translate([200,200]);
+
+const path = d3.geoPath().projection(projection);
+
+d3.json("kinki.geojson").then(data => {
+
+  svg.selectAll("path")
+    .data(data.features)
+    .enter()
+    .append("path")
+    .attr("d", path)
+    .attr("fill", d => getColor(d.properties.name))
+    .on("click", (e,d)=>{
+      if(ownership[d.properties.name] !== "player") return;
+      selected = d.properties.name;
+      setStatus(selected + "を選択");
+    });
+
 });
 
 // ===== プレイヤー =====
-function playerAction(action) {
-  if (!selected) return;
+function playerAction(){
+  if(!selected) return;
 
-  resolveTurn(selected, action, "player");
-
+  resolve(selected,"player");
   cpuTurn();
-  updateMap();
+  update();
   checkWin();
 }
 
 // ===== CPU =====
-function cpuTurn() {
-  let ai = Object.keys(ownership).filter(p => ownership[p] === "ai");
-  if (ai.length === 0) return;
-
-  let from = ai[Math.floor(Math.random() * ai.length)];
-
-  resolveTurn(from, Math.random() < 0.7 ? "attack" : "defense", "ai");
+function cpuTurn(){
+  let ai = Object.keys(ownership).filter(k=>ownership[k]==="ai");
+  let from = ai[Math.floor(Math.random()*ai.length)];
+  resolve(from,"ai");
 }
 
 // ===== 戦闘 =====
-function resolveTurn(from, action, side) {
-  let targets = adjacency[from].filter(p => ownership[p] !== side);
-  if (targets.length === 0) return;
+function resolve(from,side){
+  let targets = adjacency[from].filter(p=>ownership[p]!==side);
+  if(targets.length===0) return;
 
-  let target = targets[Math.floor(Math.random() * targets.length)];
+  let target = targets[Math.floor(Math.random()*targets.length)];
 
   let atk = stats[from].atk + Math.random();
   let def = stats[target].def;
 
-  if (action === "attack" && atk > def) {
-    ownership[target] = side;
+  if(atk>def){
+    ownership[target]=side;
   }
 }
 
-// ===== 描画 =====
-function updateMap() {
-  Object.keys(ownership).forEach(p => {
-    let el = document.getElementById(p);
-
-    if (ownership[p] === "player") el.setAttribute("fill", "red");
-    else if (ownership[p] === "ai") el.setAttribute("fill", "blue");
-    else el.setAttribute("fill", "#ccc");
-  });
+// ===== 更新 =====
+function update(){
+  d3.selectAll("path")
+    .attr("fill", d => getColor(d.properties.name));
 
   updateScore();
 }
 
+function getColor(name){
+  if(ownership[name]==="player") return "red";
+  if(ownership[name]==="ai") return "blue";
+  return "#ccc";
+}
+
 // ===== スコア =====
-function updateScore() {
-  let player = 0, ai = 0;
-
-  Object.values(ownership).forEach(v => {
-    if (v === "player") player++;
-    if (v === "ai") ai++;
+function updateScore(){
+  let p=0,a=0;
+  Object.values(ownership).forEach(v=>{
+    if(v==="player") p++;
+    if(v==="ai") a++;
   });
-
   document.getElementById("score").textContent =
-    `プレイヤー: ${player} / CPU: ${ai}`;
+    `プレイヤー:${p} CPU:${a}`;
 }
 
-// ===== 勝利 =====
-function checkWin() {
-  let vals = Object.values(ownership);
-
-  if (vals.every(v => v === "player")) endGame("win");
-  if (vals.every(v => v === "ai")) endGame("lose");
+// ===== 勝敗 =====
+function checkWin(){
+  let v = Object.values(ownership);
+  if(v.every(x=>x==="player")) end("勝利！");
+  if(v.every(x=>x==="ai")) end("敗北…");
 }
 
-function endGame(type) {
-  document.body.innerHTML =
-    type === "win"
-      ? "<h1>🎉勝利！近畿制圧！</h1>"
-      : "<h1>💀敗北…CPUに支配された</h1>";
+function end(msg){
+  document.body.innerHTML=`<h1>${msg}</h1>`;
 }
 
 // ===== UI =====
-function setStatus(text) {
-  document.getElementById("status").textContent = text;
+function setStatus(t){
+  document.getElementById("status").textContent=t;
 }
-
-function restart() {
-  location.reload();
-}
-
-// 初期表示
-updateMap();
 
 </script>
 
