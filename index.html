@@ -3,181 +3,46 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>近畿陣取り（GeoJSON完全版）</title>
-
-<script src="https://d3js.org/d3.v7.min.js"></script>
+<title>近畿陣取り（テスト版）</title>
 
 <style>
-body {
-  margin:0;
-  background:#111;
-  color:white;
-  text-align:center;
-  font-family:sans-serif;
-}
-
-svg {
-  width:95vw;
-  max-width:400px;
-}
-
-path {
-  stroke:#000;
-  cursor:pointer;
-  transition:0.2s;
-}
-
-button {
-  padding:10px;
-  margin:5px;
-  border:none;
-  background:#333;
-  color:white;
-}
+body { background:#111; color:white; text-align:center; font-family:sans-serif; }
+button { padding:10px; margin:5px; }
 </style>
 </head>
 
 <body>
 
-<h2>近畿陣取り（リアル地図）</h2>
-<p id="status">県をクリック</p>
+<h2>近畿陣取り（テスト）</h2>
+<p id="status">県を選択</p>
 <p id="score"></p>
 
-<button onclick="playerAction()">攻撃</button>
+<button onclick="attack()">攻撃</button>
+<button onclick="defense()">守備</button>
 
-<svg id="map"></svg>
+<div id="map"></div>
 
 <script>
 
-// ===== 状態 =====
-let selected = null;
+let player = 1;
+let cpu = 3;
 
-let ownership = {
-  "京都府":"player",
-  "大阪府":"ai",
-  "奈良県":"ai",
-  "兵庫県":"ai",
-  "滋賀県":null,
-  "和歌山県":null
-};
-
-let stats = {
-  "滋賀県":{atk:2,def:3},
-  "京都府":{atk:2,def:4},
-  "大阪府":{atk:5,def:2},
-  "奈良県":{atk:2,def:4},
-  "兵庫県":{atk:3,def:3},
-  "和歌山県":{atk:1,def:3}
-};
-
-const adjacency = {
-  "滋賀県":["京都府"],
-  "京都府":["滋賀県","大阪府","兵庫県"],
-  "大阪府":["京都府","奈良県","和歌山県","兵庫県"],
-  "奈良県":["大阪府","和歌山県"],
-  "兵庫県":["京都府","大阪府"],
-  "和歌山県":["大阪府","奈良県"]
-};
-
-// ===== D3 =====
-const svg = d3.select("#map");
-
-const projection = d3.geoMercator()
-  .center([135.5,34.8])
-  .scale(2000)
-  .translate([200,200]);
-
-const path = d3.geoPath().projection(projection);
-
-d3.json("kinki.geojson").then(data => {
-
-  svg.selectAll("path")
-    .data(data.features)
-    .enter()
-    .append("path")
-    .attr("d", path)
-    .attr("fill", d => getColor(d.properties.name))
-    .on("click", (e,d)=>{
-      if(ownership[d.properties.name] !== "player") return;
-      selected = d.properties.name;
-      setStatus(selected + "を選択");
-    });
-
-});
-
-// ===== プレイヤー =====
-function playerAction(){
-  if(!selected) return;
-
-  resolve(selected,"player");
-  cpuTurn();
+function attack(){
+  cpu--;
   update();
-  checkWin();
 }
 
-// ===== CPU =====
-function cpuTurn(){
-  let ai = Object.keys(ownership).filter(k=>ownership[k]==="ai");
-  let from = ai[Math.floor(Math.random()*ai.length)];
-  resolve(from,"ai");
+function defense(){
+  player++;
+  update();
 }
 
-// ===== 戦闘 =====
-function resolve(from,side){
-  let targets = adjacency[from].filter(p=>ownership[p]!==side);
-  if(targets.length===0) return;
-
-  let target = targets[Math.floor(Math.random()*targets.length)];
-
-  let atk = stats[from].atk + Math.random();
-  let def = stats[target].def;
-
-  if(atk>def){
-    ownership[target]=side;
-  }
-}
-
-// ===== 更新 =====
 function update(){
-  d3.selectAll("path")
-    .attr("fill", d => getColor(d.properties.name));
-
-  updateScore();
-}
-
-function getColor(name){
-  if(ownership[name]==="player") return "red";
-  if(ownership[name]==="ai") return "blue";
-  return "#ccc";
-}
-
-// ===== スコア =====
-function updateScore(){
-  let p=0,a=0;
-  Object.values(ownership).forEach(v=>{
-    if(v==="player") p++;
-    if(v==="ai") a++;
-  });
   document.getElementById("score").textContent =
-    `プレイヤー:${p} CPU:${a}`;
+    "プレイヤー:"+player+" CPU:"+cpu;
 }
 
-// ===== 勝敗 =====
-function checkWin(){
-  let v = Object.values(ownership);
-  if(v.every(x=>x==="player")) end("勝利！");
-  if(v.every(x=>x==="ai")) end("敗北…");
-}
-
-function end(msg){
-  document.body.innerHTML=`<h1>${msg}</h1>`;
-}
-
-// ===== UI =====
-function setStatus(t){
-  document.getElementById("status").textContent=t;
-}
+update();
 
 </script>
 
