@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>近畿陣取りゲーム</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: #111;
+  color: white;
+  text-align: center;
+}
+
+#ui {
+  padding: 10px;
+}
+
+svg {
+  width: 95vw;
+  max-width: 400px;
+}
+
+path {
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+button {
+  padding: 10px 15px;
+  margin: 5px;
+  border: none;
+  border-radius: 8px;
+  background: #333;
+  color: white;
+}
+</style>
+</head>
+
+<body>
+
+<div id="ui">
+  <h2>近畿陣取り</h2>
+  <p id="turn">プレイヤーのターン</p>
+  <p id="status">県をクリックして選択</p>
+  <p id="score"></p>
+
+  <button onclick="playerAction('attack')">攻撃</button>
+  <button onclick="playerAction('defense')">守備</button>
+  <button onclick="restart()">リスタート</button>
+</div>
+
+<!-- 🗺近畿SVG -->
+<svg viewBox="0 0 300 300">
+
+  <path id="滋賀" d="M150,20 L200,40 L190,90 L140,80 Z" fill="#ccc"/>
+  <path id="京都" d="M120,80 L170,90 L160,140 L110,130 Z" fill="#ccc"/>
+  <path id="大阪" d="M140,140 L190,150 L180,200 L130,190 Z" fill="#ccc"/>
+  <path id="奈良" d="M190,140 L240,150 L230,200 L180,190 Z" fill="#ccc"/>
+  <path id="兵庫" d="M70,120 L120,130 L110,190 L60,180 Z" fill="#ccc"/>
+  <path id="和歌山" d="M160,200 L230,210 L220,270 L150,260 Z" fill="#ccc"/>
+
+</svg>
+
+<script>
+
+// 👇基本データ
+let selected = null;
+
+let ownership = {
+  "京都": "player",
+  "大阪": "ai",
+  "奈良": "ai",
+  "兵庫": "ai",
+  "滋賀": null,
+  "和歌山": null
+};
+
+let stats = {
+  "滋賀": {atk:2, def:3},
+  "京都": {atk:2, def:4},
+  "大阪": {atk:5, def:2},
+  "奈良": {atk:2, def:4},
+  "兵庫": {atk:3, def:3},
+  "和歌山": {atk:1, def:3}
+};
+
+const adjacency = {
+  "滋賀":["京都"],
+  "京都":["滋賀","大阪","兵庫"],
+  "大阪":["京都","奈良","和歌山","兵庫"],
+  "奈良":["大阪","和歌山"],
+  "兵庫":["京都","大阪"],
+  "和歌山":["大阪","奈良"]
+};
+
+// 👇クリック
+Object.keys(stats).forEach(p => {
+  document.getElementById(p).addEventListener("click", () => {
+    if (ownership[p] !== "player") return;
+    selected = p;
+    setStatus(p + "を選択");
+  });
+});
+
+// 👇プレイヤー行動
+function playerAction(action) {
+  if (!selected) return;
+
+  resolveTurn(selected, action, "player");
+
+  cpuTurn();
+
+  updateMap();
+  checkWin();
+}
+
+// 👇CPU
+function cpuTurn() {
+  let ai = Object.keys(ownership).filter(p => ownership[p] === "ai");
+  if (ai.length === 0) return;
+
+  let from = ai[Math.floor(Math.random() * ai.length)];
+
+  resolveTurn(from, Math.random() < 0.7 ? "attack" : "defense", "ai");
+}
+
+// 👇戦闘
+function resolveTurn(from, action, side) {
+  let targets = adjacency[from].filter(p => ownership[p] !== side);
+  if (targets.length === 0) return;
+
+  let target = targets[Math.floor(Math.random() * targets.length)];
+
+  let atk = stats[from].atk + Math.random();
+  let def = stats[target].def;
+
+  if (action === "attack" && atk > def) {
+    ownership[target] = side;
+  }
+}
+
+// 👇描画
+function updateMap() {
+  Object.keys(ownership).forEach(p => {
+    let el = document.getElementById(p);
+
+    if (ownership[p] === "player") el.setAttribute("fill", "red");
+    else if (ownership[p] === "ai") el.setAttribute("fill", "blue");
+    else el.setAttribute("fill", "#ccc");
+  });
+
+  updateScore();
+}
+
+// 👇スコア
+function updateScore() {
+  let player = 0, ai = 0;
+
+  Object.values(ownership).forEach(v => {
+    if (v === "player") player++;
+    if (v === "ai") ai++;
+  });
+
+  document.getElementById("score").textContent =
+    `プレイヤー: ${player} / CPU: ${ai}`;
+}
+
+// 👇勝利判定
+function checkWin() {
+  let vals = Object.values(ownership);
+
+  if (vals.every(v => v === "player")) {
+    endGame("win");
+  }
+
+  if (vals.every(v => v === "ai")) {
+    endGame("lose");
+  }
+}
+
+// 👇終了
+function endGame(type) {
+  document.body.innerHTML =
+    type === "win"
+      ? "<h1>🎉勝利！近畿制圧！</h1>"
+      : "<h1>💀敗北…CPUに支配された</h1>";
+}
+
+// 👇UI
+function setStatus(text) {
+  document.getElementById("status").textContent = text;
+}
+
+// 👇リスタート
+function restart() {
+  location.reload();
+}
+
+// 初期
+updateMap();
+
+</script>
+
+</body>
+</html>
